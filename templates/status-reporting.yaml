@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspaceTemplate
+metadata:
+  name: status-reporting
+
+node:
+  vcpu: "0.5"
+  memory: "256M"
+
+
+
+plugins:
+  - id: local.status-reporting
+    runtime:
+      apiVersion: baton.mailloop.dev/v1alpha1
+      kind: AgentRuntime
+      package:
+        image: batonos/agent:0.1.0-rc.1
+
+
+
+
+
+
+
+
+        command:
+          - /bin/sh
+          - -c
+          - |
+            set -eu
+            dwell="${BATON_STATUS_DWELL_SEC:-20}"
+            f="${BATON_RUNTIME_STATUS_FILE:-/status}"
+            while :; do
+              for word in idle working needs-input done; do
+                printf '%s\n' "$word" > "$f"
+                sleep "$dwell"
+              done
+            done
+      adapter:
+        terminal:
+          tty: false
+
+
+
+
+        status:
+          report: file
+        health:
+          probe: exec
+          exec: ["/bin/true"]
+          intervalSec: 5
+      execution:
+        env:
+
+
+          - name: BATON_STATUS_DWELL_SEC
+            value: "20"

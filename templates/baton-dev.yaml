@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspaceTemplate
+metadata:
+  name: baton-dev
+
+
+
+
+
+node:
+  vcpu: "4"
+  memory: "8G"
+  volumeSize: "20G"
+
+
+
+
+plugins:
+  - id: local.baton-dev
+    runtime:
+
+
+
+      apiVersion: baton.mailloop.dev/v1alpha1
+      kind: AgentRuntime
+      metadata:
+
+        labels:
+
+
+          role: unset
+
+      package:
+        image: batonos/dev:0.1.0-rc.1
+        command: ["claude"]
+        workingDir: /workspace
+
+      adapter:
+        terminal:
+
+
+
+          tty: true
+        workspace:
+
+
+          mountPath: /workspace
+        persistence:
+
+
+          - path: /var/lib/baton/home
+            class: state
+        lifecycle:
+          restart: on-failure
+          stopGraceSec: 10
+        health:
+          probe: process
+
+      execution:
+        resources:
+          memory: 2G
+          cpu: "2"
+        secrets:
+
+
+          - name: GIT_KEY
+            from: file:/etc/baton/secrets/git-key
+            mountPath: /run/secrets/git-key
+
+            required: true
+          - name: MODEL_API_KEY
+            from: file:/etc/baton/secrets/model-api-key
+            mountPath: /run/secrets/model-api-key
+
+            required: true

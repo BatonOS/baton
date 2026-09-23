@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspacePlugin
+metadata:
+  id: baton.slack
+  version: "0.2.0"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+service:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  command:
+    - /usr/bin/env
+    - node
+    - --experimental-websocket
+    - /opt/baton/plugins/baton.slack/facility/bin/baton-slack.cjs
+    - run
+  workingDir: /opt/baton/plugins/baton.slack
+
+
+
+
+
+  user: "65533"
+  secrets:
+
+
+
+
+
+
+
+
+    - name: SLACK_BOT_TOKEN
+      from: file:/etc/baton/secrets/slack-bot-token
+      mountPath: /run/secrets/slack-bot-token
+      label: Slack bot token (xoxb-…)
+      provider: slack
+      help_url: https://api.slack.com/apis/socket-mode
+
+      required: true
+    - name: SLACK_APP_TOKEN
+      from: file:/etc/baton/secrets/slack-app-token
+      mountPath: /run/secrets/slack-app-token
+      label: Slack app-level token (xapp-…, connections:write)
+      provider: slack
+      help_url: https://api.slack.com/apis/socket-mode
+      required: true
+  health:
+
+
+
+
+
+
+
+    probe: exec
+    exec:
+      - /usr/bin/env
+      - node
+      - /opt/baton/plugins/baton.slack/facility/bin/baton-slack.cjs
+      - probe
+      - /var/lib/baton/plugins/services/baton.slack/home/state/heartbeat
+    intervalSec: 30
+    failureThreshold: 3
+  restart: on-failure
+  stopGraceSec: 10

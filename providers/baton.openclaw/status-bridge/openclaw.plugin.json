@@ -1,0 +1,7 @@
+{
+  "id": "baton-status",
+  "name": "BATON status bridge",
+  "description": "Reports the runtime activity word BATON reads",
+  "activation": { "onStartup": true },
+  "configSchema": { "type": "object", "additionalProperties": false }
+}

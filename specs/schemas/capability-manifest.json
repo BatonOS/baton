@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://baton.mailloop.dev/schemas/capability-manifest.json",
+  "title": "BATON capability manifest",
+  "description": "The `capabilities.yaml` a node reads at startup and advertises in its `hello` frame. This is a declaration of what the node offers, not a grant: the control plane still decides whether a capability may be registered, and an operator still decides whether it is enabled.",
+  "type": "object",
+  "required": ["apiVersion", "capabilities"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "baton.mailloop.dev/v1alpha1"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capability" }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "required": ["name", "version", "risk"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$",
+          "description": "Dotted namespace, e.g. sys.echo, git.repository.diff, crm.customer.search. At least one dot: a bare verb tells a reader nothing about what it touches.",
+          "examples": ["sys.echo", "git.repository.diff"]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "description": { "type": "string" },
+        "risk": {
+          "type": "string",
+          "enum": ["low", "confirm", "blocked"],
+          "description": "low: read-only and bounded. confirm: needs a human decision before it runs. blocked: never automatic. When in doubt the answer is confirm — a capability that turns out to be safe can be downgraded, but one that was assumed safe cannot be un-invoked."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "JSON Schema for the input object.",
+          "additionalProperties": true
+        },
+        "outputs": {
+          "type": "object",
+          "description": "JSON Schema for the output object.",
+          "additionalProperties": true
+        },
+        "allow_from": {
+          "type": "array",
+          "description": "Origins permitted to invoke this. Absent means local only — the safe default, since a capability reachable from the public network by accident is exactly the failure this field exists to prevent.",
+          "items": {
+            "anyOf": [
+              { "enum": ["local", "mailloop-cloud"] },
+              { "type": "string", "pattern": "^agent:[a-z0-9-]+$" }
+            ]
+          },
+          "default": ["local"]
+        },
+        "allow_data_egress": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether results from this capability may leave the local network."
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30
+        }
+      }
+    }
+  }
+}

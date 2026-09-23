@@ -1,0 +1,284 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspacePlugin
+metadata:
+  id: baton.claude-code
+  version: "1.0.0"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+instructions:
+  path: $HOME/.claude/CLAUDE.md
+
+
+
+
+
+
+
+
+  file: instructions.md
+
+
+
+
+
+
+
+runtime:
+  apiVersion: baton.mailloop.dev/v1alpha1
+  kind: AgentRuntime
+
+  package:
+    image: batonos/agent-node:0.1.0-rc.1@sha256:8d1998e3a613095e6102d2643ba78b0f7bde33855b2b8b591af039a514dd433e
+
+
+
+    install:
+      - ["npm", "install", "-g", "@anthropic-ai/claude-code"]
+
+
+
+
+
+
+      - ["apk", "add", "--no-cache", "bash"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "[ -n \"${MODEL_API_KEY_FILE:-}\" ] || exit 0; mkdir -p \"$HOME/.claude\"; node -e 'const fs=require(\"fs\");const p=process.env.HOME+\"/.claude/settings.json\";let c={};try{c=JSON.parse(fs.readFileSync(p,\"utf8\"))}catch(e){};c.apiKeyHelper=\"cat \"+process.env.MODEL_API_KEY_FILE;fs.writeFileSync(p,JSON.stringify(c,null,2))'"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "node -e 'const fs=require(\"fs\");const d=process.env.HOME+\"/.claude\";fs.mkdirSync(d,{recursive:true});const p=d+\"/settings.json\";let c={};try{c=JSON.parse(fs.readFileSync(p,\"utf8\"))}catch(e){};const cmd=w=>\"[ -n \\\"${BATON_RUNTIME_STATUS_FILE:-}\\\" ] || exit 0; echo \"+w+\" > \\\"$BATON_RUNTIME_STATUS_FILE\\\"\";c.hooks=c.hooks||{};for(const [e,w] of [[\"SessionStart\",\"idle\"],[\"UserPromptSubmit\",\"working\"],[\"Stop\",\"done\"],[\"SessionEnd\",\"idle\"]])c.hooks[e]=[{hooks:[{type:\"command\",command:cmd(w)}]}];fs.writeFileSync(p,JSON.stringify(c,null,2))'"]
+    command: ["claude"]
+    workingDir: /workspace
+
+  adapter:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    status:
+      report: file
+    terminal:
+      tty: true
+    workspace:
+      mountPath: /workspace
+
+
+
+
+
+
+
+
+
+
+
+
+    inbox:
+      onMessage: ["claude", "-p", "You have new mail. Run `baton-inbox next --json` and act on it."]
+    skills:
+
+
+      mountPath: /opt/baton/skills
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      discovery: symlink
+      runtimePath: $HOME/.claude/skills
+    persistence:
+
+
+
+
+
+
+
+
+
+
+
+      - path: .claude
+        class: secret
+    lifecycle:
+      restart: on-failure
+      stopGraceSec: 10
+    health:
+      probe: process
+
+  execution:
+    resources:
+      memory: 2G
+      cpu: "2"
+    env:
+
+
+
+      - name: SHELL
+        value: /bin/bash
+
+
+
+
+
+
+
+
+
+      - name: IS_SANDBOX
+        value: "1"
+    secrets:
+
+
+      - name: MODEL_API_KEY
+        from: file:/etc/baton/secrets/model-api-key
+        mountPath: /run/secrets/model-api-key
+
+
+
+
+        label: Claude Code key
+        provider: anthropic
+        help_url: https://docs.anthropic.com/en/docs/claude-code/setup
+
+
+
+        required: false

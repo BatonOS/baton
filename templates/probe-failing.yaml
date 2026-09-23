@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspaceTemplate
+metadata:
+  name: probe-failing
+
+
+
+
+node:
+  vcpu: "0.5"
+  memory: "256M"
+
+
+
+plugins:
+  - id: local.probe-failing
+    runtime:
+
+
+
+      apiVersion: baton.mailloop.dev/v1alpha1
+      kind: AgentRuntime
+      package:
+        image: batonos/agent:0.1.0-rc.1
+
+
+
+
+
+
+
+
+
+
+        command: ["sleep", "infinity"]
+      adapter:
+        terminal:
+          tty: false
+        health:
+          probe: exec
+          exec: ["/bin/false"]
+          intervalSec: 5
+      execution:

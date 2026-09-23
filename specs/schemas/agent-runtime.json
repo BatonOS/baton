@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://baton.mailloop.dev/schemas/agent-runtime.json",
+  "title": "BATON AgentRuntime spec",
+  "description": "The `runtime` section of a Node Template — the software configuration of a node — and the document the node daemon reads back inside the instance at /etc/baton/runtime.yaml. It has two consumers at two layers: `package.image`, `adapter.workspace`, and `execution` describe the agent-node and are read host-side by the CLI when it builds the container; `package.command`/`install`, `adapter.*` (terminal, health, lifecycle, persistence, skills), and `execution.secrets`/`env` describe the runtime process and are read by the daemon. The parser is deliberately unforgiving — unknown fields are an error, because a misspelled `memroy:` that parsed silently would drop a limit the operator believes is in force.\n\nThree sections, and every one of them is declarative data: `package` is how a runtime is installed and started, `adapter` is how BATON controls it whatever it is, and `execution` is what conditions it must run under. They replaced a single `spec:` block that mixed all three — which is why `resources` had no obvious home and `install` had nowhere to go at all.\n\nUntil 2026-08-18 this document was also a top-level user file (`--runtime <file>`); it is not any more: a user file is a WorkspaceTemplate (renamed from NodeTemplate on 2026-09-01), and `kind: AgentRuntime` at the top level is refused, not translated. Since workspace 3.1 this document does not sit at the template's top level either: it lives in the plugin that supplies the runtime, and the template names that plugin.\n\nThere is no published schema for the Node Template wrapper, and that is a decision rather than a gap (2026-08-24). One existed, nothing executed it, and it had already drifted: two shipped templates carry `metadata.official` while the schema declared `additionalProperties: false` and never named it — the product followed the templates and nothing noticed. The rule for this contract is that a schema is either generated from the authority or deleted; with no generator in the tree, it was deleted. **The authority for the wrapper is the parser** (`apps/cli/src/runtime/template.ts`), which is strict and is the single thing every path goes through — file, stdin, and `resource publish --type template` alike. A second description that nothing runs is not documentation; it is a statement that can become false without anything going red.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "package"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "baton.mailloop.dev/v1alpha1"
+    },
+    "kind": {
+      "const": "AgentRuntime"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "package": {
+      "type": "object",
+      "description": "How this runtime is installed and started. `install` is what makes a Template an Agent Workspace Specification rather than a Dockerfile (D-29).",
+      "required": [
+        "command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "The agent-node image. **It must run `baton-agent` as its ENTRYPOINT** — that process is the node: it enrolls, holds the one outbound connection to the control plane, and starts the program named in `command` as a child. An image that starts something else produces a container that runs, reports healthy, and never joins anything, because nothing is left to do the joining. Build FROM an agent-node image, or copy `baton-agent` into your own and make it the ENTRYPOINT. `baton node create` refuses an image that does not, rather than creating a node that cannot work."
+        },
+        "install": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Each entry is argv, never a shell string — the same rule `command` follows, so an argument containing a space or a semicolon stays an argument."
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "argv, handed to exec directly. Never joined into a string and never interpreted by a shell."
+        },
+        "workingDir": {
+          "type": "string"
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "description": "How BATON controls this runtime. BATON contains no per-runtime adapter CODE; this is the other thing with the same name, and it is data.",
+      "additionalProperties": false,
+      "properties": {
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tty": {
+              "type": "boolean",
+              "description": "Absence means false: a runtime that did not ask to be enterable must not become enterable by omission."
+            }
+          }
+        },
+        "workspace": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Where the runtime works. `mountPath` alone names a per-node volume (`<node>-workspace`) so one template serves a team; `volume` needs `mountPath`.",
+          "properties": {
+            "mountPath": {
+              "type": "string",
+              "description": "Absolute path inside the runtime."
+            },
+            "volume": {
+              "type": "string",
+              "description": "An explicit volume name; requires mountPath."
+            },
+            "readOnly": {
+              "type": "boolean",
+              "description": "Mount the workspace read-only. Absent means false. Both parsers accept it."
+            }
+          }
+        },
+        "status": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "report": {
+              "type": "string",
+              "enum": [
+                "file"
+              ],
+              "description": "How this runtime hands BATON its own status — the runtime reports its own state and BATON only records it, never inferring it: it writes one word into the file named by `BATON_RUNTIME_STATUS_FILE`, which the daemon exports only when this field is declared.\n\nOne value today, and a closed enum anyway. The point of the field is that ABSENCE is meaningful \u2014 absent means `not-declared`, which is BATON knowing no claim will ever come, not BATON failing to know \u2014 so it must be possible to write something that is neither absence nor a typo silently accepted.\n\nA file rather than a datagram socket, and the reason is not elegance: every runtime plugin has to carry this bridge, and a bridge that is not one line does not get written. `printf 'working\\n' > \"$BATON_RUNTIME_STATUS_FILE\"` is a line anyone can add; `socat`/`nc -U` is a dependency and a lesson. The vocabulary is systemd's `sd_notify`; only the transport differs."
+            }
+          },
+          "description": "Whether this runtime reports what it is doing, and how. The runtime reports its own state and BATON only records it, never inferring it. Absent is `not-declared`, and a health or status path must be able to say `unknown` rather than render a missing claim as green.\n\nThis field was in the Go parser and in the CLI's key set but MISSING from this schema until 2026-09-07, while the description under `inbox` below said \"the same reasoning as `status` above\" \u2014 a sentence pointing at something that was not there. The gate in scripts/validate.mjs did not see it: three of its four comparisons read an orphaned `$defs.spec` subtree that nothing `$ref`s. It compares this document's live tree now, and refuses any unreachable `$defs` entry."
+        },
+        "skills": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mountPath": {
+              "type": "string",
+              "description": "Absolute path inside the runtime where skill packages are unpacked; each lands at <mountPath>/<name>."
+            },
+            "discovery": {
+              "type": "string",
+              "enum": [
+                "symlink",
+                "external-dirs",
+                "none"
+              ],
+              "description": "How a skill becomes findable by THIS runtime. `symlink`: BATON links each skill into `runtimePath`. `external-dirs`: the runtime is told about a directory by its own config, and BATON's claim stops at having placed the bytes. `none`, and the absence of the field, mean the same thing and it is a real answer — nobody has measured where this runtime looks, so the readout says `unknown` rather than showing a green tick for a bridge that may do nothing.\n\nUntil 2026-09-01 this was a line of shell in each official template's `package.install`: claude-code and openclaw symlinked, hermes wrote an `external_dirs` entry, and codex deliberately carried none. Four hand-written bridges stopped being survivable once a workspace plugin could also provide a skill — with the whole mount directory symlinked into the runtime's path, a plugin's skill could only be exposed by writing INTO the control plane's unpack directory, where the next sync is entitled to remove it. Declared, the daemon runs one bridge with two sources."
+            },
+            "runtimePath": {
+              "type": "string",
+              "description": "Where THIS runtime looks for skills, when `discovery` is `symlink`. Absolute, or starting at `$HOME` — which is the only coordinate a template may depend on (adapter contract, 2026-08-27), because where the host maps it is a host implementation detail and a template that wrote `/root` would be wrong on any image running the runtime as somebody else. Refused when `discovery` is anything but `symlink`: a path nothing links into is a path nobody will notice is wrong."
+            }
+          },
+          "description": "Where skill packages are unpacked. **No default, and the absence of one is the decision**: where a skill goes is a property of the runtime, so BATON states it or refuses. A node with skills assigned and no mountPath refuses the install and says so — a guessed path would report an install as done that put files where nothing reads them.\n\n`discovery` and `runtimePath` say how the unpacked bytes reach the runtime. They are separate from `mountPath` on purpose: `mountPath` is BATON's side of the handover and is the same for every source, while discovery is the runtime's own convention and is the one thing that changes when you swap the harness."
+        },
+        "inbox": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "onMessage": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1,
+              "description": "argv to run while this runtime's mailbox is not empty. It receives no message: not the payload, not the sender, not an id — the node hands mail over, it does not read it — BATON carries a message but never reads or interprets its content — and a command that could see the contents would move that line.\n\nLEVEL, NOT EDGE. It is retried while mail is waiting rather than fired once per arrival, because \"woken and the mail is still there\" has four causes — the runtime was busy, it started and did not take the message, it crashed on start, and the daemon restarted between arrival and wake — and only a level condition covers all four. It stops when the mailbox drains, which is the thing it exists to cause. Retries back off (5s, doubling, capped at 5m) and a new arrival resets the backoff; there is no attempt ceiling, because a ceiling turns \"cannot take it right now\" into \"never woken again\" with nothing saying so.\n\nWaking means RUNNING THIS COMMAND and nothing else. There is no path from here into a model's context and there must not be one: for an interactive runtime the only way to \"remind\" it is send-keys, and a runtime's terminal accepts input only from a human who has taken it over, exclusively and on the audit record; and a reminder retried N times would appear N times in the context as facts the model can read. A process run twice does not know about the first run; a sentence said twice is read by the second reading."
+            }
+          },
+          "description": "What this runtime wants run when mail is waiting for it. **Absent means the daemon does nothing**, and a runtime that has never been taught about mail behaves exactly as it did before this field existed — the same reasoning as `status` above: defaulting it on would start processes on every node that never thought about the question."
+        },
+        "persistence": {
+          "type": "array",
+          "description": "What this runtime keeps for itself, and how each thing must be treated when it is moved. A runtime declares its paths because only it knows what is in them — BATON treats the runtime as opaque, so anything runtime-specific must be declared in its spec; the class answers two questions — what happens if it is lost, what happens if it leaks — and decides which archive member it travels in and whether `migrate` moves it. A bare string is refused, not translated.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Absolute, or relative to the runtime's HOME."
+              },
+              "class": {
+                "type": "string",
+                "enum": [
+                  "cache",
+                  "state",
+                  "secret"
+                ],
+                "default": "state",
+                "description": "cache: regenerable, moved only with --with-cache · state (default): not regenerable, not sensitive · secret: not regenerable, and whoever holds it acts as this agent — moved only over the encrypted transport, never staged elsewhere."
+              }
+            }
+          }
+        },
+        "lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "restart": {
+              "type": "string",
+              "enum": [
+                "always",
+                "on-failure",
+                "never"
+              ]
+            },
+            "stopGraceSec": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "health": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How the daemon judges the runtime process. `probe: process` is the honest declaration for a runtime whose only liveness is running; it reports not-declared rather than passing.",
+          "properties": {
+            "probe": {
+              "type": "string",
+              "enum": [
+                "process",
+                "tcp",
+                "exec",
+                "none"
+              ]
+            },
+            "intervalSec": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Default 15."
+            },
+            "tcp": {
+              "type": "string",
+              "description": "host:port, for probe: tcp."
+            },
+            "exec": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "argv, for probe: exec. Never a shell string."
+            },
+            "failureThreshold": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Consecutive failures that mean unhealthy. Default 3."
+            }
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "description": "What conditions this runtime must run under. (`isolation` used to be here; it left the template on 2026-08-19 — a provider capability, not a request.) **A request, not a guarantee** — a condition that cannot be met is refused at create time, never silently dropped.",
+      "additionalProperties": false,
+      "properties": {
+        "user": {
+          "type": "string",
+          "pattern": "^[0-9]+(:[0-9]+)?$",
+          "description": "The uid (or uid:gid) the runtime process runs as. Set to a uid other than the daemon's (PID 1), the runtime can read but not modify what the daemon unpacks for it; this names the process's identity, not the container's. It needs a daemon that can switch to another uid: a daemon whose PID 1 is not root refuses to start a runtime that sets this, and the shipped agent image keeps a non-root PID 1. NUMERIC only: a name would resolve against an /etc/passwd inside the image, which BATON never reads, so the same spec would mean different ids in different images while looking the same. Both parsers enforce the same shape; absent means the old behaviour — no isolation the image does not already provide."
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The process's REQUEST: what this runtime asks for. Kubernetes quantity strings. The office's LIMIT is the Node Template's `node.vcpu/memory`, and request must fit within limit.",
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?m?$"
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?)?$"
+            }
+          }
+        },
+        "driver_network": {
+          "type": "string",
+          "description": "The container engine's network name (a Docker artifact such as `baton-poc_default`), not a BATON network. **Flat, and spelled as the store spells it** — not `network.driver`: `network` is BATON's own noun, and a driver's value one level under it would put a driver's vocabulary in BATON's, and nothing a user writes or reads may require knowing which driver is underneath. The node daemon does not use this field; it names it so that a spec carrying it still parses on both sides (the daemon parses with unknown fields rejected, and reads the same bytes the CLI does)."
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "egress": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "allowlist",
+                    "deny",
+                    "allow"
+                  ]
+                },
+                "allow": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "An absent mode is not \"allow\": it is \"nothing was asked for\".\n\n`deny` means the control plane and nothing else — a node that could reach nothing at all is not a restricted node, it is a broken one.\n\n`allowlist` is part of this contract and is REFUSED at create time by builds that cannot enforce it. Downgrading it to `allow` would grant exactly the access it was written to withhold, so an unmeetable request is refused rather than reinterpreted."
+            }
+          }
+        },
+        "checkpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requested": {
+              "type": "string",
+              "enum": [
+                "filesystem",
+                "process",
+                "memory"
+              ],
+              "description": "What kind of checkpoint this runtime asks for. `filesystem` is the floor every provider offers and is accepted by this build; `process` and `memory` are refused by value where unavailable — never downgraded."
+            }
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "from"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The credential's name; `--secret NAME=<host file>` binds it at create."
+              },
+              "from": {
+                "type": "string",
+                "pattern": "^file:/",
+                "description": "Where the runtime reads it: `file:<absolute path>`, the only source today. An environment variable is visible in `docker inspect`, in /proc/<pid>/environ and in crash reports, so a secret is never passed that way and the parser refuses every other scheme by name.\n\nThe slash is load-bearing and was missing here until 2026-09-07: both parsers require the path to be absolute (Go `filepath.IsAbs`, and the CLI's `resolveSecretMount`), and a published contract looser than the parsers advertises a document that will be refused. The `^file:/` form was correct in the orphaned `$defs.secret` this document stopped referencing; the live copy written beside it lost the slash, and the gate below was still reading the orphan."
+              },
+              "mountPath": {
+                "type": "string",
+                "description": "Default /run/secrets/<name>. Never inside the workspace."
+              },
+              "label": {
+                "type": "string",
+                "description": "Display hint: a human name for the credential on the create page (\"OpenAI API key\"). The daemon ignores it."
+              },
+              "provider": {
+                "type": "string",
+                "description": "Display hint: who issues the credential (e.g. openai, anthropic). The daemon ignores it."
+              },
+              "required": {
+                "type": "boolean",
+                "description": "Whether the node can do its job without this value. `true` — no (a Slack relay with no token relays nothing). `false` — yes, an alternative exists (a persisted interactive login instead of MODEL_API_KEY).\n\n**It has no default and an entry that omits it is refused** (operator 2026-09-04): an absent answer would read as \"optional\" to the create page that renders which credentials must be supplied, so \"nobody said\" and \"not needed\" would become the same thing. The daemon does not act on it \u2014 it mounts the file either way; `template show` carries it.\n\nMissing from this schema until 2026-09-07 while `additionalProperties` here is false, so this published contract refused every secret block the official plugins actually ship \u2014 including the field that ruling made mandatory."
+              },
+              "help_url": {
+                "type": "string",
+                "description": "Display hint: where to obtain the credential. The daemon ignores it."
+              }
+            }
+          }
+        },
+        "env": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string",
+                "description": "Plain text. Credentials go in `secrets`, not here."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$",
+          "description": "Lowercase letters, digits, and interior hyphens, 1-40 characters. The same rule as a node name, because it becomes part of a container name and a terminal session name, and both forbid dots and colons."
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Free-form. One key is read: `runtime`, reported as the runtime type. It is advisory — nothing branches on it."
+        }
+      }
+    }
+  }
+}

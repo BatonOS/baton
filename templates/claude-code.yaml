@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspaceTemplate
+metadata:
+  name: claude-code
+
+
+
+
+
+  official: true
+
+
+
+
+
+
+
+  version: "1.0.0"
+
+
+
+
+node:
+  vcpu: "2"
+  memory: "2G"
+  volumeSize: "20G"
+
+
+
+
+
+plugins:
+  - baton.claude-code
+
+
+
+
+
+  - baton.inbox

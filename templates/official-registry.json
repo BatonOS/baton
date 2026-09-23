@@ -1,0 +1,27 @@
+{
+  "_": "Which provider holds the registered copy of each official template, and under which id. Committed on purpose: the id has to travel INSIDE the package, or two machines disagree about which directory row is which template (operator 2026-09-05: npm 自带的需要跟 cloud 的 official 对齐). This is a REGISTRATION record, not a fetch record — these templates were published from here, not downloaded — so it does not reuse the `<name>.yaml.source.json` provenance sidecar, whose `source_network`/`fetched_at` would both be saying something untrue. `spec_sha256` is the bytes that were registered; a test compares it against the packaged file, so editing an official template without re-registering goes red instead of drifting quietly. `version` is `metadata.version` as it stood when those bytes were registered: the provider refuses a re-registration whose bytes changed without it advancing (409 VERSION_NOT_ADVANCED), so the two travel together by construction, and a test compares this against the packaged file the same way it compares the digest.",
+  "provider": "batoncloud",
+  "registered_at": "2026-09-05",
+  "templates": {
+    "claude-code": {
+      "id": "tpl_f03769cbbfe84762",
+      "spec_sha256": "sha256:943f94fcaec976be545d5b5ae2b542e5043e8194b3b0f9be8adcb934eaffa00c",
+      "version": "1.0.0"
+    },
+    "codex": {
+      "id": "tpl_a521348c5dcc49f1",
+      "spec_sha256": "sha256:4dbcda9e6e53f0fa1bc28b315a87cb9c5c9f4a2007104d5128b81d0d8029a168",
+      "version": "1.0.0"
+    },
+    "hermes": {
+      "id": "tpl_f390bdd47d334288",
+      "spec_sha256": "sha256:082a0756cbb1fb13f725a448b0d26b040c57805bdfbd701da7a3113d9f1962e6",
+      "version": "1.0.0"
+    },
+    "openclaw": {
+      "id": "tpl_66ce53db03d5464b",
+      "spec_sha256": "sha256:c0588552f5ed3844969cbe96dfa25956c6708184819b82f79ad56329cf2e88d0",
+      "version": "1.0.0"
+    }
+  }
+}

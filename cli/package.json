@@ -1,0 +1,50 @@
+{
+  "name": "@batonos/cli",
+  "version": "0.1.0-rc.1",
+  "description": "Manage your own agent network: nodes, capabilities, and the safety gate in front of them.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "baton": "dist/bin/baton.js"
+  },
+  "exports": {
+    "./framework": {
+      "types": "./dist/framework/app.d.ts",
+      "import": "./dist/framework/app.js"
+    }
+  },
+  "engines": {
+    "node": "^20.17.0 || ^22.6.0 || >=24 <25"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "{ rm -rf dist/templates.new dist/plugins.new && tsc -p tsconfig.json && chmod +x dist/bin/baton.js && cp -r ../templates dist/templates.new && cp -r ../providers dist/plugins.new && rm -rf dist/templates && mv dist/templates.new dist/templates && rm -rf dist/plugins && mv dist/plugins.new dist/plugins && ../scripts/source-stamp.sh > dist/.source; } || { rc=$?; rm -rf dist/templates.new dist/plugins.new; rm -f dist/.source; exit $rc; }",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.lint.json"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/pngjs": "^6.0.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BatonOS/baton.git"
+  }
+}

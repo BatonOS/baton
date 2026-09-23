@@ -1,0 +1,37 @@
+{
+  "note": "cloud-api \u7b7e\u53d1\u4fa7\u5411\u91cf, sig=Ed25519(base64url(payload)ASCII), payload \u7d27\u51d1JSON. exp \u57fa\u51c6 now=1793000000",
+  "issuer_pubkey_spki_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAYjju4smQNnjL3JeURJYkG2sossDyEocDqjOmfJZILA0=\n-----END PUBLIC KEY-----\n",
+  "verify_now_hint": 1793000000,
+  "vectors": [
+    {
+      "name": "valid",
+      "ticket": "eyJwdXJwb3NlIjoid29ya3NwYWNlLXBhbmVsLWVudHJ5Iiwid3MiOiJ3cy1hYmMxMjMiLCJleHAiOjE3OTMwMDAwNjAsIm5vbmNlIjoiQVFFQkFRRUJBUUVCQVFFQkFRRUJBUSJ9.1xmk6tqArzQ71rUx7I8dbZ6b5dGK7YYlzZsNviVV7m--lQAxZWOl9bSaUlyX4lp82f8bwuo7eiBfAEBFHbqPDg",
+      "expect": "accept (ws=ws-abc123)"
+    },
+    {
+      "name": "expired",
+      "ticket": "eyJwdXJwb3NlIjoid29ya3NwYWNlLXBhbmVsLWVudHJ5Iiwid3MiOiJ3cy1hYmMxMjMiLCJleHAiOjE3OTI5OTk5OTksIm5vbmNlIjoiQVFFQkFRRUJBUUVCQVFFQkFRRUJBUSJ9.W-i9fjUS7_7WODE92dp9L2GBoV2TCfCHjt--UBviLYRBogqk4YZTpBBySgMmNgZ1pvUI7tRfVuCrtYBvp-hxBA",
+      "expect": "expired"
+    },
+    {
+      "name": "wrong_purpose",
+      "ticket": "eyJwdXJwb3NlIjoic29tZXRoaW5nLWVsc2UiLCJ3cyI6IndzLWFiYzEyMyIsImV4cCI6MTc5MzAwMDA2MCwibm9uY2UiOiJBUUVCQVFFQkFRRUJBUUVCQVFFQkFRIn0.7WMCHg14l1a5vsCeq963P9PnLs7cmYJ2WSO-pYjqu3b_ihIdO1VM2xxsliLPK0TcyOmMXmSe0IZxtGpqxsioDw",
+      "expect": "invalid_ticket (purpose\u2260)"
+    },
+    {
+      "name": "unknown_field",
+      "ticket": "eyJwdXJwb3NlIjoid29ya3NwYWNlLXBhbmVsLWVudHJ5Iiwid3MiOiJ3cy1hYmMxMjMiLCJleHAiOjE3OTMwMDAwNjAsIm5vbmNlIjoiQVFFQkFRRUJBUUVCQVFFQkFRRUJBUSIsImV4dHJhIjoieCJ9.U5PcyQzvReCL4lU0roJPw4XjkOvJHRhuzxpLmMY8a8l-BzpCGIYXpFFLPJwG-kT-Rlsm82-3puPSFm0FZUj0Ag",
+      "expect": "invalid_ticket (\u672a\u77e5\u5b57\u6bb5\u62d2\u6536)"
+    },
+    {
+      "name": "tampered_sig",
+      "ticket": "eyJwdXJwb3NlIjoid29ya3NwYWNlLXBhbmVsLWVudHJ5Iiwid3MiOiJ3cy1hYmMxMjMiLCJleHAiOjE3OTMwMDAwNjAsIm5vbmNlIjoiQVFFQkFRRUJBUUVCQVFFQkFRRUJBUSJ9.1xmk6tqArzQ71rUx7I8dbZ6b5dGK7YYlzZsNviVV7m--lQAxZWOl9bSaUlyX4lp82f8bwuo7eiBfAEBFHbAAAA",
+      "expect": "invalid_ticket (sig \u4e0d\u8fc7)"
+    },
+    {
+      "name": "wrong_ws_at_verify",
+      "ticket": "eyJwdXJwb3NlIjoid29ya3NwYWNlLXBhbmVsLWVudHJ5Iiwid3MiOiJ3cy1PVEhFUiIsImV4cCI6MTc5MzAwMDA2MCwibm9uY2UiOiJBUUVCQVFFQkFRRUJBUUVCQVFFQkFRIn0.coZkpRMro_RnEuPVu45KMX0dm037-rnRb_4811Q2vEVbbKQuMGeNMP7Wqf8B3YxBmsrlqzRL8Rq_AM1VJuJqCw",
+      "expect": "not_owned when verifier ws\u2260ws-OTHER"
+    }
+  ]
+}

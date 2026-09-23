@@ -1,0 +1,238 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspacePlugin
+metadata:
+  id: baton.openclaw
+  version: "1.0.0"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+instructions:
+  path: /workspace/AGENTS.md
+
+
+
+
+
+
+
+
+  file: instructions.md
+
+
+
+
+
+runtime:
+  apiVersion: baton.mailloop.dev/v1alpha1
+  kind: AgentRuntime
+
+  package:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    image: batonos/agent-node24:0.1.0-rc.1@sha256:718d21c0c621a7d5a1af9a7292a7277d85f35d320da45a32982bf1bb6b2346fb
+    install:
+
+
+
+
+      - ["npm", "install", "-g", "openclaw@2026.7.1-2"]
+
+
+
+
+
+
+
+      - ["sh", "-c", "openclaw config set agents.defaults.workspace /workspace"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "mkdir -p \"$HOME/.openclaw/plugins-src\" && cp -r /opt/baton/openclaw-status-bridge \"$HOME/.openclaw/plugins-src/baton-status\" 2>/dev/null || true; openclaw config set plugins.load.paths '[\"~/.openclaw/plugins-src\"]' || true"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "[ -n \"${MODEL_API_KEY_FILE:-}\" ] || exit 0; node -e 'const fs=require(\"fs\");const f=process.env.HOME+\"/.openclaw/openclaw.json\";const c=JSON.parse(fs.readFileSync(f));((c.models??={}).providers??={}).openai??={};c.models.providers.openai.apiKey=fs.readFileSync(process.env.MODEL_API_KEY_FILE,\"utf8\").trim();fs.writeFileSync(f,JSON.stringify(c,null,2))'; chmod 600 \"$HOME/.openclaw/openclaw.json\""]
+
+
+
+    command: ["openclaw", "chat"]
+    workingDir: /workspace
+
+  adapter:
+
+
+
+
+
+
+    status:
+      report: file
+    terminal:
+      tty: true
+    workspace:
+      mountPath: /workspace
+
+
+
+
+
+
+
+
+
+
+
+
+
+    inbox:
+      onMessage: ["openclaw", "agent", "--local", "-m", "You have new mail. Run `baton-inbox next --json` and act on it."]
+    skills:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      mountPath: /opt/baton/skills
+      discovery: symlink
+      runtimePath: $HOME/.openclaw/skills
+    persistence:
+
+
+      - path: .openclaw
+        class: secret
+    lifecycle:
+      restart: on-failure
+      stopGraceSec: 10
+    health:
+      probe: process
+
+  execution:
+    resources:
+      memory: 2G
+      cpu: "2"
+    secrets:
+
+
+
+      - name: MODEL_API_KEY
+        from: file:/etc/baton/secrets/model-api-key
+        mountPath: /run/secrets/model-api-key
+        label: OpenClaw provider key (OpenAI)
+        provider: openai
+        help_url: https://platform.openai.com/api-keys
+
+
+
+        required: true

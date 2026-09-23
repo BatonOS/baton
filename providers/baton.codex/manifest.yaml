@@ -1,0 +1,232 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspacePlugin
+metadata:
+  id: baton.codex
+  version: "1.0.0"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+instructions:
+  path: $HOME/.codex/AGENTS.md
+
+
+
+
+
+
+
+
+  file: instructions.md
+
+
+
+
+
+
+
+runtime:
+  apiVersion: baton.mailloop.dev/v1alpha1
+  kind: AgentRuntime
+
+  package:
+    image: batonos/agent-node:0.1.0-rc.1@sha256:8d1998e3a613095e6102d2643ba78b0f7bde33855b2b8b591af039a514dd433e
+
+
+
+    install:
+      - ["npm", "install", "-g", "@openai/codex"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "[ -n \"${MODEL_API_KEY_FILE:-}\" ] || exit 0; mkdir -p \"$HOME/.codex\"; node -e 'const fs=require(\"fs\");const p=process.env.HOME+\"/.codex/auth.json\";let c={};try{c=JSON.parse(fs.readFileSync(p,\"utf8\"))}catch(e){};c.OPENAI_API_KEY=fs.readFileSync(process.env.MODEL_API_KEY_FILE,\"utf8\").trim();fs.writeFileSync(p,JSON.stringify(c,null,2))'; chmod 600 \"$HOME/.codex/auth.json\""]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "node -e 'const fs=require(\"fs\");const d=process.env.HOME+\"/.codex\";fs.mkdirSync(d,{recursive:true});const hj=d+\"/hooks.json\";fs.writeFileSync(hj,JSON.stringify({\"hooks\": {\"SessionStart\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"[ -n \\\"${BATON_RUNTIME_STATUS_FILE:-}\\\" ] || exit 0; echo idle > \\\"$BATON_RUNTIME_STATUS_FILE\\\"\"}]}], \"UserPromptSubmit\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"[ -n \\\"${BATON_RUNTIME_STATUS_FILE:-}\\\" ] || exit 0; echo working > \\\"$BATON_RUNTIME_STATUS_FILE\\\"\"}]}], \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"[ -n \\\"${BATON_RUNTIME_STATUS_FILE:-}\\\" ] || exit 0; echo done > \\\"$BATON_RUNTIME_STATUS_FILE\\\"\"}]}], \"SessionEnd\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"[ -n \\\"${BATON_RUNTIME_STATUS_FILE:-}\\\" ] || exit 0; echo idle > \\\"$BATON_RUNTIME_STATUS_FILE\\\"\"}]}]}},null,2));const H={\"session_start\": \"207f6bf01a90c17b11e88b33c4892341396d299124a5d96399a978ffdbb254bd\", \"user_prompt_submit\": \"b87bd663682fef20b654d4589e038c41cf5f842c3eb6e0612aa505b44f3f2adf\", \"stop\": \"942fcd6f28a230df73ad6dc572996f69886c2e77fb3687253d6c8aa29c8df95a\", \"session_end\": \"b05f490be38969fe4c8996b5021c4c78c3585249d0420f2a48d56e868185b2ed\"};const c=d+\"/config.toml\";let t=\"\";try{t=fs.readFileSync(c,\"utf8\")}catch(e){};if(!/\\[hooks\\.state\\]/.test(t)){t+=\"\\n[projects.\\\"\"+(process.env.BATON_WORKSPACE||\"/workspace\")+\"\\\"]\\ntrust_level = \\\"trusted\\\"\\n\\n[hooks.state]\\n\";for(const k of Object.keys(H))t+=\"\\n[hooks.state.\\\"\"+hj+\":\"+k+\":0:0\\\"]\\ntrusted_hash = \\\"sha256:\"+H[k]+\"\\\"\\n\";fs.writeFileSync(c,t)}'"]
+    command: ["codex"]
+    workingDir: /workspace
+
+  adapter:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    status:
+      report: file
+    terminal:
+      tty: true
+    workspace:
+      mountPath: /workspace
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    inbox:
+      onMessage: ["codex", "exec", "You have new mail. Run `baton-inbox next --json` and act on it."]
+    skills:
+
+
+
+
+
+
+
+
+
+
+
+
+
+      mountPath: /opt/baton/skills
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      discovery: none
+    persistence:
+
+
+
+
+
+
+
+
+
+
+
+      - path: .codex
+        class: secret
+    lifecycle:
+      restart: on-failure
+      stopGraceSec: 10
+    health:
+      probe: process
+
+  execution:
+    resources:
+      memory: 2G
+      cpu: "2"
+    secrets:
+
+
+      - name: MODEL_API_KEY
+        from: file:/etc/baton/secrets/model-api-key
+        mountPath: /run/secrets/model-api-key
+
+        label: OpenAI API key
+        provider: openai
+        help_url: https://platform.openai.com/api-keys
+
+
+
+        required: false

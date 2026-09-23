@@ -1,0 +1,206 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspacePlugin
+metadata:
+  id: baton.hermes
+  version: "1.0.0"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+instructions:
+  path: $HOME/.hermes/SOUL.md
+
+
+
+
+
+
+
+
+  file: instructions.md
+
+
+
+
+
+runtime:
+  apiVersion: baton.mailloop.dev/v1alpha1
+  kind: AgentRuntime
+
+  package:
+    image: batonos/agent-node:0.1.0-rc.1@sha256:8d1998e3a613095e6102d2643ba78b0f7bde33855b2b8b591af039a514dd433e
+    install:
+
+
+
+
+      - ["apk", "add", "--no-cache", "git"]
+
+
+
+
+
+
+      - ["npm", "install", "-g", "hermes-agent@0.20.6"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "mkdir -p /opt/baton/skills-view && hermes config set skills.external_dirs '[\"/opt/baton/skills-view\"]'"]
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "[ -n \"${MODEL_API_KEY_FILE:-}\" ] || exit 0; key=$(cat \"$MODEL_API_KEY_FILE\"); f=$HOME/.hermes/.env; touch \"$f\"; grep -v \"^OPENROUTER_API_KEY=\" \"$f\" > \"$f.tmp\" 2>/dev/null || true; printf 'OPENROUTER_API_KEY=%s\\n' \"$key\" >> \"$f.tmp\"; mv \"$f.tmp\" \"$f\"; chmod 600 \"$f\""]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      - ["sh", "-c", "set -e; d=$HOME/.hermes/agent-hooks; mkdir -p \"$d\"; h=$d/baton-status.sh; printf '%s\\n' '#!/bin/sh' 'cat > /dev/null' '[ -n \"${BATON_RUNTIME_STATUS_FILE:-}\" ] || { echo \"{}\"; exit 0; }' 'echo \"$1\" > \"$BATON_RUNTIME_STATUS_FILE\"' 'echo \"{}\"' > \"$h\"; chmod +x \"$h\"; node -e 'const fs=require(\"fs\"),os=require(\"os\");const h=process.env.HOME+\"/.hermes/agent-hooks/baton-status.sh\";const m={on_session_start:\"idle\",pre_llm_call:\"working\",on_session_end:\"done\"};const cfg=process.env.HOME+\"/.hermes/config.yaml\";let t=\"\";try{t=fs.readFileSync(cfg,\"utf8\")}catch(e){};if(!/^hooks:/m.test(t)){t+=\"\\nhooks_auto_accept: true\\nhooks:\\n\";for(const k of Object.keys(m))t+=\"  \"+k+\":\\n    - command: \\\"\"+h+\" \"+m[k]+\"\\\"\\n\";fs.writeFileSync(cfg,t)};const al=process.env.HOME+\"/.hermes/shell-hooks-allowlist.json\";let a={approvals:[]};try{a=JSON.parse(fs.readFileSync(al,\"utf8\"))}catch(e){};a.approvals=a.approvals||[];for(const k of Object.keys(m)){const c=h+\" \"+m[k];if(!a.approvals.some(x=>x.event===k&&x.command===c))a.approvals.push({event:k,command:c})};fs.writeFileSync(al,JSON.stringify(a,null,2))'"]
+    command: ["hermes"]
+    workingDir: /workspace
+
+  adapter:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    status:
+      report: file
+    terminal:
+      tty: true
+    workspace:
+      mountPath: /workspace
+
+
+
+
+
+
+
+
+
+
+
+
+    inbox:
+      onMessage: ["hermes", "-z", "You have new mail. Run `baton-inbox next --json` and act on it."]
+    skills:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      mountPath: /opt/baton/skills
+      discovery: external-dirs
+      runtimePath: /opt/baton/skills-view
+    persistence:
+
+
+
+
+      - path: .hermes
+        class: secret
+    lifecycle:
+      restart: on-failure
+      stopGraceSec: 10
+    health:
+      probe: process
+
+  execution:
+    resources:
+      memory: 2G
+      cpu: "2"
+    secrets:
+
+
+      - name: MODEL_API_KEY
+        from: file:/etc/baton/secrets/model-api-key
+        mountPath: /run/secrets/model-api-key
+        label: Hermes provider key (OpenRouter)
+        provider: openrouter
+        help_url: https://hermes-agent.nousresearch.com/docs/user-guide/secrets/
+
+
+
+        required: true

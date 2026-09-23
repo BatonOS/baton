@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspacePlugin
+metadata:
+  id: baton.inbox
+  version: "1.0.0"
+
+skills:
+
+
+
+
+  - path: skills/inbox-agent
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://baton.mailloop.dev/schemas/node-name.json",
+  "title": "BATON node display name",
+  "description": "One definition of a legal node name, shared by the CLI, the control plane, and the tmux session layer. Duplicating this regexp is how a name gets accepted by one component and rejected by another; the constraints below come from the strictest consumer of each character class.",
+  "type": "string",
+  "pattern": "^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$",
+  "minLength": 1,
+  "maxLength": 40,
+  "examples": ["agent01", "macbook-dev", "nas"],
+  "$comment": "Lowercase alphanumeric with interior hyphens. No dots or colons: tmux forbids both in session names, and names appear verbatim in `baton-{role}-{name}` sessions. No leading or trailing hyphen, so the name survives being a Docker object name. Capped at 40 so `baton-standby-<name>--control-api` stays inside container name limits."
+}

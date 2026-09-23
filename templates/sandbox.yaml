@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: Apache-2.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+apiVersion: baton.mailloop.dev/v1alpha1
+kind: WorkspaceTemplate
+metadata:
+  name: sandbox
+
+
+
+
+
+
+
+node:
+  vcpu: "1"
+  memory: "1G"
+
+
+
+plugins:
+  - id: local.sandbox
+    runtime:
+
+
+
+      apiVersion: baton.mailloop.dev/v1alpha1
+      kind: AgentRuntime
+
+      package:
+
+
+        image: batonos/agent:0.1.0-rc.1
+        command: ["/bin/sh", "-l"]
+        workingDir: /workspace
+
+      adapter:
+        terminal:
+
+          tty: true
+        workspace:
+          mountPath: /workspace
+        lifecycle:
+
+
+
+          restart: never
+          stopGraceSec: 5
+        health:
+
+
+
+          probe: process
+
+      execution:
+        resources:
+
+
+          memory: 256M
+          cpu: "0.5"

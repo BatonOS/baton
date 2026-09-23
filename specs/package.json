@@ -1,0 +1,26 @@
+{
+  "name": "@batonos/api-contracts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "OpenAPI, WebSocket protocol, and JSON Schemas shared by the BATON CLI, control plane, and web console.",
+  "files": [
+    "openapi.yaml",
+    "ws-protocol.md",
+    "schemas"
+  ],
+  "exports": {
+    "./openapi.yaml": "./openapi.yaml",
+    "./schemas/*": "./schemas/*"
+  },
+  "scripts": {
+    "build": "node scripts/validate.mjs",
+    "test": "node scripts/validate.mjs",
+    "lint": "node scripts/validate.mjs",
+    "validate": "node scripts/validate.mjs"
+  },
+  "devDependencies": {
+    "yaml": "^2.6.0"
+  }
+}
