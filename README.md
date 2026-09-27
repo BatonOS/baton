@@ -34,7 +34,7 @@ Start with [Install](docs/install.md) and the [Quickstart](docs/quickstart.md).
 | `core/agent/` | The agent that runs inside every node and keeps its identity, capabilities and inbox |
 | `core/pkg/` | Code shared by the Go modules, including the extension interfaces |
 | `providers/` | One directory per official plugin, each with a `manifest.yaml` and a `PLUGIN.md` |
-| `templates/` | The templates `baton create` builds nodes from |
+| `templates/` | The templates `baton agent create` builds nodes from |
 | `specs/` | The contracts the CLI and the control plane agree on |
 | `docs/` | Install, quickstart, concepts and the CLI reference |
 | `scripts/` | Scripts the build uses |
